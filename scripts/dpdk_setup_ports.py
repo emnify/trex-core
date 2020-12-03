@@ -602,8 +602,10 @@ Other network devices
         with open(krnl_params_file) as f:
             krnl_params = f.read()
         # IOMMU is always enabled on Power systems
-        if march != 'ppc64le' and 'iommu=' not in krnl_params:
-            raise VFIOBindErr('vfio-pci is not an option here')
+        # AWS EC2 instances do not have IOMMU enabled.
+        # Try to load vfio_pci in any case.
+        # if march != 'ppc64le' and 'iommu=' not in krnl_params:
+        #    raise VFIOBindErr('vfio-pci is not an option here')
         if 'vfio_pci' not in dpdk_nic_bind.get_loaded_modules():
             ret = os.system('modprobe vfio_pci')
             if ret:
