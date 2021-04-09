@@ -143,6 +143,7 @@ void GTPU::Prepare()
     m_rewrite.ip4.src_addr = htonl(m_src_addr);
     m_rewrite.ip4.dst_addr = htonl(m_dst_addr);
 
+    // Source port will later be randomized during encapsulation
     m_rewrite.udp.src_port = htons(GTPU_UDP_PORT);
     m_rewrite.udp.dst_port = htons(GTPU_UDP_PORT);
 
