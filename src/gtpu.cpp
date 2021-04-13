@@ -40,7 +40,8 @@ int GTPU::Encap(struct rte_mbuf *pkt)
 	rte_ether_addr_copy(&eth->d_addr, &new_eth->d_addr);
 
     // Set the outer headers
-    uint32_t random_src_port = rand() % 10000;
+    const uint32_t mask = (2<<16) -1;
+    uint32_t random_src_port = it->second.steid & mask;
     m_rewrite.udp.src_port = htons(random_src_port);
     ip4_gtpu_header_t * ip4_gtpu = (ip4_gtpu_header_t *)(new_eth + 1);
     memcpy(ip4_gtpu, &m_rewrite, sizeof(ip4_gtpu_header_t));
