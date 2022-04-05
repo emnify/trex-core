@@ -223,6 +223,13 @@ def get_loaded_modules():
             loaded_mods = fd.readlines()
         for line in loaded_mods:
             loaded_modules.append(line.split()[0])
+
+    with open("/usr/lib/modules/%s/modules.builtin" % kernel_ver) as builtin:
+        builtin_mods = builtin.readlines()
+        for builtin_line in builtin_mods:
+            if "vfio-pci" in builtin_line:
+                loaded_modules.append("vfio-pci")
+
     return loaded_modules
 
 def check_modules():
@@ -666,19 +673,37 @@ def bind_one(dev_id, driver, force):
 
     # if we are binding to one of DPDK drivers, add PCI id's to that driver
     if driver in dpdk_drivers:
-        filename = "/sys/bus/pci/drivers/%s/new_id" % driver
-        try:
-            f = open(filename, "w")
-        except:
-            print("Error: bind failed for %s - Cannot open %s" % (dev_id, filename))
-            return
-        try:
-            f.write("%04x %04x" % (dev["Vendor"], dev["Device"]))
-            f.close()
-        except:
-            print("Error: bind failed for %s - Cannot write new PCI ID to " \
-                "driver %s" % (dev_id, driver))
-            return
+        filename = "/sys/bus/pci/devices/%s/driver_override" % dev_id
+        if exists(filename):
+            try:
+                f = open(filename, "w")
+            except OSError as err:
+                print("Error: bind failed for %s - Cannot open %s: %s"
+                      % (dev_id, filename, err))
+                return
+            try:
+                f.write("%s" % driver)
+                f.close()
+            except OSError as err:
+                print("Error: bind failed for %s - Cannot write driver %s to "
+                      "PCI ID: %s" % (dev_id, driver, err))
+                return
+        else:
+            filename = "/sys/bus/pci/drivers/%s/new_id" % driver
+            try:
+                f = open(filename, "w")
+            except:
+                print("Error: bind failed for %s - Cannot open %s" % (dev_id, filename))
+                return
+            try:
+                val = "%04x %04x" % (dev["Vendor"], dev["Device"])
+                print("Writing %s to %s." % (val, filename))
+                f.write(val)
+                f.close()
+            except OSError as err:
+                print("Error: bind failed for %s - Cannot write new PCI ID to " \
+                        "driver %s: %s" % (dev_id, driver, err))
+                return
 
     # do the bind by writing to /sys
     filename = "/sys/bus/pci/drivers/%s/bind" % driver
@@ -690,10 +715,12 @@ def bind_one(dev_id, driver, force):
             bind_one(dev_id, saved_driver, force)
         return
     try:
+        print("Writing %s to %s." % (dev_id, filename))
         f.write(dev_id)
         f.close()
         return True
-    except:
+    except OSError as ioex:
+        print(ioex)
         # for some reason, closing dev_id after adding a new PCI ID to new_id
         # results in IOError. however, if the device was successfully bound,
         # we don't care for any errors and can safely ignore IOError
